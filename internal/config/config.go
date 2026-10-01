@@ -17,6 +17,9 @@ import (
 // DefaultSite is the Search Console property used when none is configured.
 const DefaultSite = "sc-domain:1000farmacie.it"
 
+// DefaultCruxOrigin is the origin `cwv` queries when none is configured.
+const DefaultCruxOrigin = "https://www.1000farmacie.it"
+
 // Config is the on-disk shape of config.toml.
 type Config struct {
 	// Site is the Search Console property, e.g. "sc-domain:example.com" or
@@ -33,6 +36,7 @@ type Config struct {
 
 	Inspect   Inspect         `toml:"inspect"`
 	Datadog   Datadog         `toml:"datadog"`
+	Crux      Crux            `toml:"crux"`
 	PageTypes []pagetype.Rule `toml:"page_types"`
 }
 
@@ -65,6 +69,15 @@ type Datadog struct {
 	VerifiedQuery string `toml:"verified_query"`
 }
 
+// Crux configures the cwv command (Core Web Vitals from the Chrome UX Report
+// API).
+type Crux struct {
+	// APIKey is a Google Cloud API key with the Chrome UX Report API enabled.
+	APIKey string `toml:"api_key,omitempty"`
+	// Origin is the origin queried by default, e.g. "https://www.example.com".
+	Origin string `toml:"origin"`
+}
+
 // Defaults returns the built-in configuration.
 func Defaults() Config {
 	return Config{
@@ -82,6 +95,7 @@ func Defaults() Config {
 			BotQuery:      "@http.useragent:*Googlebot*",
 			VerifiedQuery: `@network.client.geoip.as.name:"Google LLC"`,
 		},
+		Crux:      Crux{Origin: DefaultCruxOrigin},
 		PageTypes: pagetype.Defaults(),
 	}
 }
@@ -176,6 +190,12 @@ func merge(dst *Config, src Config, md toml.MetaData) {
 	if set("datadog", "verified_query") {
 		dst.Datadog.VerifiedQuery = src.Datadog.VerifiedQuery
 	}
+	if set("crux", "api_key") {
+		dst.Crux.APIKey = src.Crux.APIKey
+	}
+	if set("crux", "origin") {
+		dst.Crux.Origin = src.Crux.Origin
+	}
 	if set("page_types") {
 		dst.PageTypes = src.PageTypes
 	}
@@ -187,6 +207,7 @@ func Encode(cfg Config, reveal bool) ([]byte, error) {
 	if !reveal {
 		cfg.Datadog.APIKey = config.MaskSecret(cfg.Datadog.APIKey)
 		cfg.Datadog.AppKey = config.MaskSecret(cfg.Datadog.AppKey)
+		cfg.Crux.APIKey = config.MaskSecret(cfg.Crux.APIKey)
 	}
 	var buf bytes.Buffer
 	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {

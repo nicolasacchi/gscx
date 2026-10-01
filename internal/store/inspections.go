@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -98,42 +99,55 @@ func (s *Store) RecentlyInspected(ctx context.Context, site string, since time.T
 // inspection with inspected_at in [from, to), ordered by URL. RawJSON is left
 // empty (use RawJSON(id)) so large windows stay cheap.
 func (s *Store) LatestPerURL(ctx context.Context, site string, from, to time.Time) ([]Inspection, error) {
+	rows, _, err := s.latestPerURL(ctx, site, from, to, "''")
+	return rows, err
+}
+
+// latestPerURL is the shared query behind LatestPerURL and LatestPerURLRich.
+// extraExpr is an SQL expression over the inspections table (alias i) that is
+// returned as a parallel slice of strings; it is evaluated only for the rows
+// that survive the "latest per URL" filter. Callers pass constants, never
+// user input.
+func (s *Store) latestPerURL(ctx context.Context, site string, from, to time.Time, extraExpr string) ([]Inspection, []string, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, url, page_type, inspected_at, quota_day, verdict, coverage_state,
-       indexing_state, robots_txt_state, page_fetch_state, google_canonical,
-       user_canonical, last_crawl_time, crawled_as
-FROM (
-	SELECT id, url, page_type, inspected_at, quota_day, verdict, coverage_state,
-	       indexing_state, robots_txt_state, page_fetch_state, google_canonical,
-	       user_canonical, last_crawl_time, crawled_as,
-	       ROW_NUMBER() OVER (PARTITION BY url ORDER BY inspected_at DESC, id DESC) AS rn
-	FROM inspections
-	WHERE site = ? AND error = '' AND inspected_at >= ? AND inspected_at < ?
-)
-WHERE rn = 1
-ORDER BY url`, site, fmtTS(from), fmtTS(to))
+SELECT i.id, i.url, i.page_type, i.inspected_at, i.quota_day, i.verdict, i.coverage_state,
+       i.indexing_state, i.robots_txt_state, i.page_fetch_state, i.google_canonical,
+       i.user_canonical, i.last_crawl_time, i.crawled_as, `+extraExpr+`
+FROM inspections i
+JOIN (
+	SELECT id FROM (
+		SELECT id, ROW_NUMBER() OVER (PARTITION BY url ORDER BY inspected_at DESC, id DESC) AS rn
+		FROM inspections
+		WHERE site = ? AND error = '' AND inspected_at >= ? AND inspected_at < ?
+	)
+	WHERE rn = 1
+) latest ON latest.id = i.id
+ORDER BY i.url`, site, fmtTS(from), fmtTS(to))
 	if err != nil {
-		return nil, fmt.Errorf("query latest inspections: %w", err)
+		return nil, nil, fmt.Errorf("query latest inspections: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
 	var out []Inspection
+	var extras []string
 	for rows.Next() {
 		r := Inspection{Site: site}
 		var at string
+		var extra sql.NullString
 		if err := rows.Scan(&r.ID, &r.URL, &r.PageType, &at, &r.QuotaDay, &r.Verdict, &r.CoverageState,
 			&r.IndexingState, &r.RobotsTxtState, &r.PageFetchState, &r.GoogleCanonical,
-			&r.UserCanonical, &r.LastCrawlTime, &r.CrawledAs); err != nil {
-			return nil, fmt.Errorf("scan inspection: %w", err)
+			&r.UserCanonical, &r.LastCrawlTime, &r.CrawledAs, &extra); err != nil {
+			return nil, nil, fmt.Errorf("scan inspection: %w", err)
 		}
 		t, err := time.Parse(time.RFC3339, at)
 		if err != nil {
-			return nil, fmt.Errorf("inspection %d: bad inspected_at %q: %w", r.ID, at, err)
+			return nil, nil, fmt.Errorf("inspection %d: bad inspected_at %q: %w", r.ID, at, err)
 		}
 		r.InspectedAt = t
 		out = append(out, r)
+		extras = append(extras, extra.String)
 	}
-	return out, rows.Err()
+	return out, extras, rows.Err()
 }
 
 // RawJSON returns the stored API result of inspection id.

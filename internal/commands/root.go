@@ -38,8 +38,9 @@ var rootCmd = &cobra.Command{
 	Long: `gscx reads Google Search Console (read-only) and reconstructs what the API
 does not expose: the Page indexing report has no API, so gscx estimates index
 coverage per page type from sampled URL inspections, tracks pages with
-impressions over time, audits sitemaps, and joins Googlebot crawl counts from
-Datadog access logs.
+impressions over time, audits sitemaps, joins Googlebot crawl counts from
+Datadog access logs, summarizes rich-result issues from the stored inspections
+and reads Core Web Vitals from the Chrome UX Report API.
 
 Output is JSON. Use --jq for a gjson path filter. Under Claude Code
 (CLAUDECODE=1) row lists are capped at 100 unless --limit is given;
