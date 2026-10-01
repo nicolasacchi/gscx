@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"slices"
 	"sort"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/nicolasacchi/gscx/internal/gsc"
 	"github.com/nicolasacchi/gscx/internal/output"
 	"github.com/nicolasacchi/gscx/internal/pagetype"
+	"github.com/nicolasacchi/gscx/internal/sitemap"
 	"github.com/nicolasacchi/gscx/internal/stats"
 	"github.com/nicolasacchi/gscx/internal/store"
 	"github.com/spf13/cobra"
@@ -22,7 +24,9 @@ const richNote = "Sample-based, from the stored URL inspections (no API calls): 
 	"and those reports have no API. Each URL counts once, with its latest successful inspection in the window; " +
 	"page types are re-derived from the current page_types rules. n counts every sampled URL of the type, but " +
 	"Google reports rich results only for pages it has indexed, so 'indexed' (verdict PASS) is the number of URLs " +
-	"that could carry any; pct is over n, pct_of_indexed over the indexed URLs. 'issues' counts URLs, not items: " +
+	"that could carry any; pct is over n, pct_of_indexed over the indexed URLs. With --frame, estimated_urls scales pct " +
+	"to the sitemap URLs of the type: unlike the Enhancements report totals (which Google samples), it estimates how " +
+	"many pages actually carry each rich result. 'issues' counts URLs, not items: " +
 	"each issue is counted once per URL. In the top-level issues list, pct_of_type is the share of the page type's " +
 	"URLs carrying that rich type, pct_of_pages the share of all the page type's sampled URLs."
 
@@ -68,8 +72,59 @@ an issue containing --issue and/or of one page type, e.g.
 	RunE: runRichURLs,
 }
 
+var (
+	flagRichFrame    bool
+	flagRichSitemaps []string
+)
+
+// applyRichFrame scales each sampled rich-result rate to the number of sitemap
+// URLs of its page type. Search Console's Enhancements reports count only a
+// sample of items, so this estimate — not the report total — answers "how
+// many pages carry this rich result". The overall row sums the per-type
+// estimates (bounds are sums of per-type bounds, hence conservative).
+func applyRichFrame(overall *richRow, by map[string]*richRow, frameByType map[string]int) {
+	sum := map[string]*estimate{}
+	frameTotal := 0
+	for t, size := range frameByType {
+		frameTotal += size
+		row := by[t]
+		if row == nil || row.N == 0 {
+			continue
+		}
+		n := size
+		row.FrameURLs = &n
+		for rt, r := range row.ByRichType {
+			e := &estimate{
+				Point: int(math.Round(r.Pct / 100 * float64(size))),
+				Lo:    int(math.Round(r.CI95.Lo / 100 * float64(size))),
+				Hi:    int(math.Round(r.CI95.Hi / 100 * float64(size))),
+			}
+			r.EstimatedURLs = e
+			acc := sum[rt]
+			if acc == nil {
+				acc = &estimate{}
+				sum[rt] = acc
+			}
+			acc.Point += e.Point
+			acc.Lo += e.Lo
+			acc.Hi += e.Hi
+		}
+	}
+	if overall == nil {
+		return
+	}
+	overall.FrameURLs = &frameTotal
+	for rt, e := range sum {
+		if r := overall.ByRichType[rt]; r != nil {
+			r.EstimatedURLs = e
+		}
+	}
+}
+
 func init() {
 	richCmd.Flags().StringVar(&flagRichSince, "since", "30d", "window start: a duration (30d, 12h, 2w) or a date (2026-09-01)")
+	richCmd.Flags().BoolVar(&flagRichFrame, "frame", false, "walk the sitemaps (network) and estimate how many URLs of each page type carry each rich result")
+	richCmd.Flags().StringArrayVar(&flagRichSitemaps, "sitemap", nil, "sitemap URL for --frame (repeatable; default: config sitemaps)")
 
 	u := richURLsCmd.Flags()
 	u.StringVar(&flagRichURLsRichType, "rich-type", "", `rich result type, e.g. "Merchant listings" (required)`)
@@ -189,6 +244,9 @@ type richTypeRow struct {
 	URLsWithIssue int      `json:"urls_with_issues"`
 	// Issues maps "SEVERITY: message" to the number of URLs carrying it.
 	Issues map[string]int `json:"issues"`
+	// EstimatedURLs scales Pct and its interval to the number of sitemap URLs
+	// of the page type (--frame): how many pages carry this rich result.
+	EstimatedURLs *estimate `json:"estimated_urls,omitempty"`
 }
 
 type richRow struct {
@@ -198,6 +256,7 @@ type richRow struct {
 	WithRichResultsPct *float64                `json:"with_rich_results_pct,omitempty"`
 	WithRichResultsCI  *ci95                   `json:"with_rich_results_ci95,omitempty"`
 	ByRichType         map[string]*richTypeRow `json:"by_rich_type"`
+	FrameURLs          *int                    `json:"frame_urls,omitempty"`
 }
 
 type richIssueRow struct {
@@ -370,6 +429,21 @@ func runRich(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	overall, by, issues := computeRich(richPages(rows, cls))
+	if flagRichFrame {
+		sitemaps := flagRichSitemaps
+		if len(sitemaps) == 0 {
+			sitemaps = cfg.Sitemaps
+		}
+		fr, err := loadFrame(ctx, site, cls, sitemap.NewClient(userAgent()), sitemaps, "", nil)
+		if err != nil {
+			return err
+		}
+		sizes := map[string]int{}
+		for t, urls := range fr.Groups {
+			sizes[t] = len(urls)
+		}
+		applyRichFrame(overall, by, sizes)
+	}
 	capped, trunc := output.Cap(issues, flagLimit)
 	out := richOut{
 		Site: site, Note: richNote, Window: timeWindow{From: from, To: now}.out(),

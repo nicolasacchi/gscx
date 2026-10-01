@@ -75,6 +75,9 @@ gscx sitemaps audit --expand
 # Googlebot over the last 7 days, by page type and status, with coverage
 gscx crawl --by-status --with-coverage
 
+# How many pages carry each rich result (the Enhancements report totals are a Google sample)
+gscx rich --frame
+
 # Which blog URLs answer 301 to Googlebot
 gscx crawl paths --type blog --status 301
 
