@@ -1,0 +1,29 @@
+# Canonical lint config for the Go CLI fleet (golangci-lint v2 schema).
+# Committed identically in each repo so `make lint` is reproducible locally and
+# in CI. Catches the dead-code / unchecked-error smells that recur across the
+# fleet (ignored json.Marshal/Write/Close, unused fields, dead flags).
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - bodyclose # unclosed HTTP response bodies (every CLI has an http client)
+    - misspell
+    - unconvert
+    - unparam
+  exclusions:
+    rules:
+      # Tests favor brevity; don't fail them on unchecked errors / response bodies.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - bodyclose
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
