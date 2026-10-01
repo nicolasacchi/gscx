@@ -98,6 +98,7 @@ would) and combining that with Google's own status. Issues:
   has_warnings       Google reports warnings for it
   unreachable_children  (--expand) a child sitemap of an index failed to load
   redundant          (--expand) >= 95% of its URLs are in one other sitemap
+                     (never set for sitemaps that carry images)
 
 --expand walks every sitemap (indexes included), counts unique page URLs and
 page types, and measures pairwise overlap: for each sitemap, the other sitemap
@@ -200,6 +201,10 @@ type sitemapAuditEntry struct {
 	Errors                int64                `json:"errors"`
 	Warnings              int64                `json:"warnings"`
 	Submitted             int64                `json:"submitted"`
+	// ImageSubmitted is Google's count of submitted images. A sitemap that
+	// carries images is never flagged redundant: its value is the image data,
+	// even when every page URL is also listed elsewhere.
+	ImageSubmitted int64 `json:"image_submitted,omitempty"`
 	// URLs is the number of unique page URLs; Entries the number of <url>
 	// elements before de-duplication (image sitemaps repeat a page once per
 	// image, so Entries can be much larger than URLs).
@@ -307,8 +312,14 @@ func auditSitemap(ctx context.Context, client *sitemap.Client, sm *searchconsole
 	}
 	e.LastDownloadedAgeDays = ageDays(sm.LastDownloaded, now)
 	for _, c := range sm.Contents {
-		if c != nil && c.Type == "web" {
+		if c == nil {
+			continue
+		}
+		switch c.Type {
+		case "web":
 			e.Submitted += c.Submitted
+		case "image":
+			e.ImageSubmitted += c.Submitted
 		}
 	}
 
@@ -493,7 +504,7 @@ func applySitemapOverlaps(entries []sitemapAuditEntry, sets []map[string]struct{
 			Shared: p.Shared,
 			Share:  math.Round(share*10000) / 10000,
 		}
-		if p.Shared*100 >= sitemapRedundantPct*p.Total {
+		if p.Shared*100 >= sitemapRedundantPct*p.Total && entries[i].ImageSubmitted == 0 {
 			entries[i].Issues = append(entries[i].Issues, "redundant")
 		}
 	}

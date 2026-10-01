@@ -450,3 +450,23 @@ func TestAuditSitemapsCancelled(t *testing.T) {
 		t.Error("cancelled context must abort the expanded audit too")
 	}
 }
+
+func TestApplySitemapOverlapsSkipsImageSitemaps(t *testing.T) {
+	// The image sitemap lists the same pages as the page sitemap, but its
+	// value is the image data: overlap is reported, redundant is not.
+	pages := urlSet("a", "b", "c")
+	entries := []sitemapAuditEntry{
+		{Path: "pages", Issues: []string{}},
+		{Path: "images", ImageSubmitted: 3, Issues: []string{}},
+	}
+	applySitemapOverlaps(entries, []map[string]struct{}{pages, urlSet("a", "b", "c")})
+	if o := entries[1].Overlap; o == nil || o.Shared != 3 {
+		t.Fatalf("image overlap = %+v", o)
+	}
+	if len(entries[1].Issues) != 0 {
+		t.Errorf("image sitemap flagged: %v", entries[1].Issues)
+	}
+	if !reflect.DeepEqual(entries[0].Issues, []string{"redundant"}) {
+		t.Errorf("page sitemap issues = %v", entries[0].Issues)
+	}
+}

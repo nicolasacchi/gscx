@@ -16,10 +16,16 @@ import (
 // gjson path (e.g. "rows.#.page", "by_type.product") and only the match is
 // printed: strings unquoted, objects/arrays as indented JSON, missing → null.
 func Emit(w io.Writer, v any, jq string) error {
-	b, err := json.Marshal(v)
-	if err != nil {
+	// No HTML escaping: URLs with query strings must print '&', '<', '>'
+	// verbatim instead of as unicode escapes.
+	var raw bytes.Buffer
+	enc := json.NewEncoder(&raw)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
 		return fmt.Errorf("encode output: %w", err)
 	}
+	b := bytes.TrimRight(raw.Bytes(), "\n")
+	var err error
 	if jq != "" {
 		r := gjson.GetBytes(b, jq)
 		switch {

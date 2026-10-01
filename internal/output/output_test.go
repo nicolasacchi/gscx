@@ -50,3 +50,13 @@ func TestCap(t *testing.T) {
 		t.Fatalf("agent cap: len=%d tr=%+v", len(got), tr)
 	}
 }
+
+func TestEmitDoesNotEscapeHTML(t *testing.T) {
+	var buf bytes.Buffer
+	if err := Emit(&buf, map[string]string{"u": "https://x/?a=1&b=<2>"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := buf.String(); got != "{\n  \"u\": \"https://x/?a=1&b=<2>\"\n}\n" {
+		t.Fatalf("got %q", got)
+	}
+}
