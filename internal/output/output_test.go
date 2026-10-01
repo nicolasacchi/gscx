@@ -2,6 +2,7 @@ package output
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 )
 
@@ -58,5 +59,34 @@ func TestEmitDoesNotEscapeHTML(t *testing.T) {
 	}
 	if got := buf.String(); got != "{\n  \"u\": \"https://x/?a=1&b=<2>\"\n}\n" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestCapUnlimited(t *testing.T) {
+	t.Setenv("CLAUDECODE", "1")
+	rows := make([]int, 150)
+	got, tr := Cap(rows, Unlimited)
+	if len(got) != 150 || tr != nil {
+		t.Fatalf("Unlimited under agent mode: len=%d tr=%+v", len(got), tr)
+	}
+}
+
+type selfMarshal struct{ U string }
+
+func (s selfMarshal) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{"u": s.U, "n": 12345678901234567})
+}
+
+func TestMarshalNoEscape(t *testing.T) {
+	// A literal backslash-u sequence in the data must survive as an escaped
+	// backslash, while real &, <, > are printed verbatim.
+	backslash := string(rune(92))
+	b, err := MarshalNoEscape(selfMarshal{U: "https://x/?a=1&b=2 " + backslash + "u0026 <x>"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"n":12345678901234567,"u":"https://x/?a=1&b=2 ` + backslash + backslash + `u0026 <x>"}`
+	if string(b) != want {
+		t.Fatalf("got  %s\nwant %s", b, want)
 	}
 }

@@ -66,6 +66,9 @@ gscx sitemaps audit --expand
 # Googlebot over the last 7 days, by page type and status, with coverage
 gscx crawl --by-status --with-coverage
 
+# Which blog URLs answer 301 to Googlebot
+gscx crawl paths --type blog --status 301
+
 # Keep history beyond Datadog's ~7-day retention
 gscx crawl --from 3d --daily --save
 gscx crawl history --since 30d
@@ -73,7 +76,9 @@ gscx crawl history --since 30d
 
 Output is JSON. `--jq` applies a [gjson](https://github.com/tidwall/gjson)
 path. Under Claude Code (`CLAUDECODE=1`) lists are capped at 100 rows unless
-`--limit` is given. A capped list carries a `truncated` object.
+`--limit` is given; `--limit 0` returns every row. A capped list carries a
+`truncated` object, and since the cap is applied before `--jq`, a warning is
+printed on stderr when a filter ran over a capped list.
 
 ## Page types
 

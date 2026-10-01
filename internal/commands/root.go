@@ -42,13 +42,19 @@ impressions over time, audits sitemaps, and joins Googlebot crawl counts from
 Datadog access logs.
 
 Output is JSON. Use --jq for a gjson path filter. Under Claude Code
-(CLAUDECODE=1) row lists are capped at 100 unless --limit is given.
+(CLAUDECODE=1) row lists are capped at 100 unless --limit is given;
+--limit 0 returns every row. The cap is applied before --jq.
 
 Configuration: ~/.config/gscx/config.toml (see 'gscx config show').
 Precedence: flag > environment > config file > built-in default.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// An explicit --limit 0 means "all rows", also under CLAUDECODE
+		// (where an unset --limit caps lists at 100).
+		if cmd.Flags().Changed("limit") && flagLimit == 0 {
+			flagLimit = output.Unlimited
+		}
 		path := flagConfig
 		if path == "" {
 			path = config.Path()
@@ -80,7 +86,7 @@ func init() {
 	pf.StringVar(&flagConfig, "config", "", "config file path (env GSCX_CONFIG; default ~/.config/gscx/config.toml)")
 	pf.StringVar(&flagDB, "db", "", "SQLite cache path (env GSCX_DB; default ~/.local/share/gscx/gscx.db)")
 	pf.StringVar(&flagJQ, "jq", "", "gjson path filter applied to the JSON output, e.g. 'rows.#.page'")
-	pf.IntVar(&flagLimit, "limit", 0, "max rows in list outputs (0 = unbounded; 100 under CLAUDECODE)")
+	pf.IntVar(&flagLimit, "limit", 0, "max rows in list outputs (unset: unbounded, 100 under CLAUDECODE; 0: all rows)")
 	pf.BoolVar(&flagVerbose, "verbose", false, "log progress and API calls to stderr")
 }
 

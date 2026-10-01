@@ -78,3 +78,36 @@ func joinNonEmpty(parts []string) string {
 	}
 	return strings.Join(out, " ")
 }
+
+// OtherQuery selects what no counted page type matches: base minus every
+// rule's DDQuery fragment. It mirrors the "other" bucket of TypeQueries.
+func OtherQuery(base string, rules []pagetype.Rule) string {
+	var b strings.Builder
+	b.WriteString(base)
+	for _, r := range rules {
+		if frag := strings.TrimSpace(r.DDQuery); frag != "" {
+			b.WriteString(" -(")
+			b.WriteString(frag)
+			b.WriteString(")")
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+// StatusFilter turns "301" or "3xx" into a Datadog status-code filter.
+// ok is false for anything else.
+func StatusFilter(s string) (filter string, ok bool) {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if len(s) != 3 || s[0] < '1' || s[0] > '5' {
+		return "", false
+	}
+	if s[1:] == "xx" {
+		return "@http.status_code:[" + s[:1] + "00 TO " + s[:1] + "99]", true
+	}
+	for _, c := range s[1:] {
+		if c < '0' || c > '9' {
+			return "", false
+		}
+	}
+	return "@http.status_code:" + s, true
+}

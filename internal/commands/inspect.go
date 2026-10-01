@@ -17,6 +17,7 @@ import (
 
 	"github.com/nicolasacchi/clicore/cierrors"
 	"github.com/nicolasacchi/gscx/internal/gsc"
+	"github.com/nicolasacchi/gscx/internal/output"
 	"github.com/nicolasacchi/gscx/internal/pagetype"
 	"github.com/nicolasacchi/gscx/internal/quota"
 	"github.com/nicolasacchi/gscx/internal/sampler"
@@ -205,7 +206,7 @@ func (r *inspectRunner) call(ctx context.Context, rawURL, pageType string) callR
 		rec.UserCanonical = ix.UserCanonical
 		rec.LastCrawlTime = ix.LastCrawlTime
 		rec.CrawledAs = ix.CrawledAs
-		if raw, mErr := json.Marshal(res); mErr == nil {
+		if raw, mErr := output.MarshalNoEscape(res); mErr == nil {
 			rec.RawJSON = string(raw)
 			out.Raw = raw
 		}

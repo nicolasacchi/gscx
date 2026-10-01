@@ -41,6 +41,7 @@ joins Googlebot crawl counts from Datadog access logs.
 | `inspect batch` | URL Inspection | stratified sample of the sitemap frame; daily budget, per-minute rate, freshness skip |
 | `coverage` / `coverage urls` | store | indexed % per type with Wilson CI; `--frame`, `--vs`; drill-down |
 | `crawl` / `crawl history` | Datadog | Googlebot requests per page type (verified network), `--by-status`, `--daily --save`, `--with-coverage` |
+| `crawl paths` | Datadog | top requested paths of one page type, optional `--status 301` / `4xx` |
 
 ## Gotchas
 
@@ -52,7 +53,8 @@ joins Googlebot crawl counts from Datadog access logs.
 
 ## Conventions
 
-- Output is always JSON. Lists are capped via `output.Cap(rows, flagLimit)`; include the returned `*output.Truncation` as `"truncated"` (omitempty) in the result.
+- Output is always JSON. Lists are capped via `output.Cap(rows, flagLimit)`; include the returned `*output.Truncation` as `"truncated"` (omitempty) in the result. An explicit `--limit 0` becomes `output.Unlimited` (no cap even under CLAUDECODE). The cap runs before `--jq`; `Emit` warns on stderr when that happened.
+- Marshal API structs with `output.MarshalNoEscape` when the bytes are printed or stored: googleapi types escape `&` as `\u0026` inside their own `MarshalJSON`.
 - Every Google API error goes through `gsc.Wrap`.
 - Precedence: flag > env > config file > default.
 - Never write to Search Console. The only state gscx writes is its own SQLite cache and config file.
