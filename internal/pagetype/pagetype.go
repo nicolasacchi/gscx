@@ -149,6 +149,6 @@ func Defaults() []Rule {
 		{Name: "sitemap", Path: `^/sitemaps/`, DDQuery: `@http.url_details.path:\/sitemaps\/*`},
 		// Sub-requests issued while Google renders a page (Turbo streams,
 		// header fragment, bundles). They are not crawl targets.
-		{Name: "render_subrequest", Path: `^/(products/track_product_list_view|header$|bundles/)`, DDQuery: `@http.url_details.path:(\/products\/track_product_list_view* OR \/header OR \/bundles\/*)`},
+		{Name: "render_subrequest", Path: `^/(products/track_product_list_view|header$|bundles/)`, DDQuery: `@http.url_details.path:(\/products\/track_product_list_view* OR \/products\/*\/dynamic_details OR \/products\/*\/related_products* OR \/header OR \/bundles\/*)`},
 	}
 }
