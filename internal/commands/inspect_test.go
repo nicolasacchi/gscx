@@ -714,6 +714,11 @@ func resetCLIState() {
 	flagBatchConcurrency, flagBatchDryRun = 4, false
 	flagCovSince, flagCovVS, flagCovFrame, flagCovSitemaps = "30d", "", false, nil
 	flagCovURLsType, flagCovURLsState, flagCovURLsVerdict, flagCovURLsSince = "", "", "", "30d"
+	flagRichSince = "30d"
+	flagRichURLsType, flagRichURLsRichType, flagRichURLsIssue, flagRichURLsSince = "", "", "", "30d"
+	flagCruxKey, flagCruxOrigin, flagCruxForm = "", "", nil
+	flagCwvURLs, flagCwvSample, flagCwvTypes, flagCwvSince = nil, 0, nil, "30d"
+	flagCwvSitemaps, flagCwvFromMaps, flagCwvConcurrent, flagCwvWeeks = nil, false, 4, 25
 	for _, n := range []string{"per-type", "fresh-days", "seed", "budget", "per-minute"} {
 		inspectBatchCmd.Flags().Lookup(n).Changed = false
 	}

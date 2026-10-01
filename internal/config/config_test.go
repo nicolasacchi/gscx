@@ -69,19 +69,57 @@ path = '^/p/'
 func TestEncodeMasksSecrets(t *testing.T) {
 	cfg := Defaults()
 	cfg.Datadog.APIKey = "abcdef1234567890"
+	cfg.Datadog.AppKey = "appkey-0987654321"
+	cfg.Crux.APIKey = "AIzaSyCruxKey-1234567890"
+	secrets := []string{cfg.Datadog.APIKey, cfg.Datadog.AppKey, cfg.Crux.APIKey}
 	b, err := Encode(cfg, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(b), "abcdef1234567890") {
-		t.Fatal("secret leaked in masked encode")
+	for _, s := range secrets {
+		if strings.Contains(string(b), s) {
+			t.Fatalf("secret %q leaked in masked encode:\n%s", s, b)
+		}
+	}
+	if !strings.Contains(string(b), "api_key") {
+		t.Fatalf("masked encode should still show that the keys are set:\n%s", b)
 	}
 	b, err = Encode(cfg, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(b), "abcdef1234567890") {
-		t.Fatal("reveal should include secret")
+	for _, s := range secrets {
+		if !strings.Contains(string(b), s) {
+			t.Fatalf("reveal should include secret %q", s)
+		}
+	}
+}
+
+func TestCruxDefaultsAndMerge(t *testing.T) {
+	if got := Defaults().Crux; got.Origin != "https://www.1000farmacie.it" || got.APIKey != "" {
+		t.Fatalf("defaults = %+v", got)
+	}
+	load := func(body string) Config {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "c.toml")
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := Load(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cfg
+	}
+	// Only the keys present in the file override the defaults.
+	if got := load("[crux]\napi_key = \"k\"\n").Crux; got.APIKey != "k" || got.Origin != DefaultCruxOrigin {
+		t.Errorf("api_key only: %+v", got)
+	}
+	if got := load("[crux]\norigin = \"https://shop.example.com\"\n").Crux; got.APIKey != "" || got.Origin != "https://shop.example.com" {
+		t.Errorf("origin only: %+v", got)
+	}
+	if got := load("site = \"x\"\n").Crux; got != Defaults().Crux {
+		t.Errorf("no [crux] section: %+v", got)
 	}
 }
 
