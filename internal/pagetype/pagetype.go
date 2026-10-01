@@ -145,7 +145,8 @@ func Defaults() []Rule {
 		{Name: "brand_paged", Path: `^/brands/[^/]+/?$`, Query: `(^|&)page=`, DDQuery: `@http.url_details.path:\/brands\/* @http.url:*page=*`},
 		{Name: "brand", Path: `^/brands(/|$)`, DDQuery: `@http.url_details.path:(\/brands OR \/brands\/*)`},
 		{Name: "blog", Path: `^/blog(/|$)`, DDQuery: `@http.url_details.path:(\/blog OR \/blog\/*)`},
-		{Name: "rimedi", Path: `^/rimedi(/|$)`, DDQuery: `@http.url_details.path:(\/rimedi OR \/rimedi\/*)`},
+		// Remedies section: /rimedi-per/<condition>/ (there is no /rimedi/).
+		{Name: "rimedi", Path: `^/rimedi-per(/|$)`, DDQuery: `@http.url_details.path:(\/rimedi\-per OR \/rimedi\-per\/*)`},
 		{Name: "sitemap", Path: `^/sitemaps/`, DDQuery: `@http.url_details.path:\/sitemaps\/*`},
 		// Sub-requests issued while Google renders a page (Turbo streams and
 		// frames, header fragment, bundles). They are not crawl targets but
