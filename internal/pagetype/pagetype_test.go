@@ -20,11 +20,17 @@ func TestClassifyDefaults(t *testing.T) {
 		"/rimedi/mal-di-gola":                                          "rimedi",
 		"/sitemaps/sitemap.xml.gz":                                     "sitemap",
 		"/products/track_product_list_view.turbo_stream":               "render_subrequest",
-		"/header":      "render_subrequest",
-		"/bundles/123": "render_subrequest",
-		"/cart":        Other,
-		"/headers":     Other,
-		"https://www.1000farmacie.it/categoria%20con%20spazio.htm": "category",
+		"/products/geanove-60cpr/dynamic_details":                      "render_subrequest",
+		"/products/geanove-60cpr/related_products.turbo_stream":        "render_subrequest",
+		"/products/geanove-60cpr/reviews":                              Other,
+		"/blogger":                                                     Other,
+		"/rimedi-naturali":                                             Other,
+		"/brandsx":                                                     Other,
+		"/header":                                                      "render_subrequest",
+		"/bundles/123":                                                 "render_subrequest",
+		"/cart":                                                        Other,
+		"/headers":                                                     Other,
+		"https://www.1000farmacie.it/categoria%20con%20spazio.htm":     "category",
 	}
 	for in, want := range cases {
 		if got := c.Classify(in); got != want {

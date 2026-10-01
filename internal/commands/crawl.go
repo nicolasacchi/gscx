@@ -14,6 +14,7 @@ import (
 
 	"github.com/nicolasacchi/gscx/internal/config"
 	"github.com/nicolasacchi/gscx/internal/datadog"
+	"github.com/nicolasacchi/gscx/internal/gsc"
 	"github.com/nicolasacchi/gscx/internal/output"
 	"github.com/nicolasacchi/gscx/internal/pagetype"
 	"github.com/nicolasacchi/gscx/internal/store"
@@ -118,7 +119,7 @@ func runCrawl(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if flagCrawlSave && !flagCrawlDaily {
-		return fmt.Errorf("--save needs --daily: crawl_daily stores one row per UTC day")
+		return gsc.NewValidationError("--save needs --daily", "crawl_daily stores one row per UTC day")
 	}
 
 	apiKey, appKey, site := ddCredentials(cfg.Datadog)
@@ -157,6 +158,12 @@ func runCrawl(cmd *cobra.Command, args []string) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	if flagCrawlWithCoverage {
+		if err := attachCrawlCoverage(ctx, res, cl, now); err != nil {
+			return err
+		}
 	}
 
 	if st != nil {
@@ -360,6 +367,8 @@ type crawlTypeOut struct {
 	Share    float64           `json:"share"`              // of all requests in the window
 	Statuses *[]crawlStatusOut `json:"statuses,omitempty"` // present (possibly empty) under --by-status
 	Daily    map[string]int64  `json:"daily,omitempty"`
+	// Coverage is the sampled index coverage of the type (--with-coverage).
+	Coverage *crawlCoverage `json:"coverage,omitempty"`
 
 	// DailyStatus is status -> day -> requests; only kept for --save.
 	dailyStatus map[string]map[string]int64

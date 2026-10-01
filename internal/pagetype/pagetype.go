@@ -143,12 +143,13 @@ func Defaults() []Rule {
 		{Name: "category", Path: `^/[^/]+\.htm$`, DDQuery: `@http.url_details.path:*.htm`},
 		{Name: "product", Path: `^/[^/]+\.html$`, DDQuery: `@http.url_details.path:*.html`},
 		{Name: "brand_paged", Path: `^/brands/[^/]+/?$`, Query: `(^|&)page=`, DDQuery: `@http.url_details.path:\/brands\/* @http.url:*page=*`},
-		{Name: "brand", Path: `^/brands(/|$)`, DDQuery: `@http.url_details.path:\/brands*`},
-		{Name: "blog", Path: `^/blog(/|$)`, DDQuery: `@http.url_details.path:\/blog*`},
-		{Name: "rimedi", Path: `^/rimedi(/|$)`, DDQuery: `@http.url_details.path:\/rimedi*`},
+		{Name: "brand", Path: `^/brands(/|$)`, DDQuery: `@http.url_details.path:(\/brands OR \/brands\/*)`},
+		{Name: "blog", Path: `^/blog(/|$)`, DDQuery: `@http.url_details.path:(\/blog OR \/blog\/*)`},
+		{Name: "rimedi", Path: `^/rimedi(/|$)`, DDQuery: `@http.url_details.path:(\/rimedi OR \/rimedi\/*)`},
 		{Name: "sitemap", Path: `^/sitemaps/`, DDQuery: `@http.url_details.path:\/sitemaps\/*`},
-		// Sub-requests issued while Google renders a page (Turbo streams,
-		// header fragment, bundles). They are not crawl targets.
-		{Name: "render_subrequest", Path: `^/(products/track_product_list_view|header$|bundles/)`, DDQuery: `@http.url_details.path:(\/products\/track_product_list_view* OR \/products\/*\/dynamic_details OR \/products\/*\/related_products* OR \/header OR \/bundles\/*)`},
+		// Sub-requests issued while Google renders a page (Turbo streams and
+		// frames, header fragment, bundles). They are not crawl targets but
+		// are ~26-29% of Googlebot's requests (measured 2026-09-29/10-01).
+		{Name: "render_subrequest", Path: `^/(products/(track_product_list_view|[^/]+/(dynamic_details|related_products))|header$|bundles/)`, DDQuery: `@http.url_details.path:(\/products\/track_product_list_view* OR \/products\/*\/dynamic_details OR \/products\/*\/related_products* OR \/header OR \/bundles\/*)`},
 	}
 }
