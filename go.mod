@@ -4,11 +4,11 @@ go 1.27.0
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/nicolasacchi/clicore v0.1.5
+	github.com/nicolasacchi/clicore v0.1.6
 	github.com/spf13/cobra v1.10.2
-	github.com/tidwall/gjson v1.20.2
-	google.golang.org/api v0.313.0
-	modernc.org/sqlite v1.62.0
+	github.com/tidwall/gjson v1.20.6
+	google.golang.org/api v0.316.0
+	modernc.org/sqlite v1.63.0
 )
 
 require (
